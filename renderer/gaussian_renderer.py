@@ -38,6 +38,8 @@ class GaussianRenderer(Renderer):
         current_ply_names,
         background_color,
         video_cams=[],
+        points_mask_threshold=8,
+        points_mask_count=None,
         render_depth=False,
         render_alpha=False,
         img_normalize=False,
@@ -78,6 +80,16 @@ class GaussianRenderer(Renderer):
                 error += str(e)
                 res.error = error
 
+            if points_mask_count is not None and points_mask_count.shape[0] == gs._xyz.shape[0]:
+                threshold = points_mask_threshold
+                mask = points_mask_count > threshold
+                gs._xyz = gs._xyz[mask]
+                gs._rotation = gs._rotation[mask]
+                gs._scaling = gs._scaling[mask]
+                gs._features_dc = gs._features_dc[mask]
+                gs._features_rest = gs._features_rest[mask]
+                gs._opacity = gs._opacity[mask]
+    
             # Render video
             if len(video_cams) > 0:
                 self.render_video("./_videos", video_cams, gs)

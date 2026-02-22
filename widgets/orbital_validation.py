@@ -147,7 +147,8 @@ class OrbitalValidationWidget(Widget):
                 test_args["cam_params"] = cam_params
                 test_args["return_depth"] = True
 
-                result = renderer.render(**test_args)
+                with torch.inference_mode():
+                    result = renderer.render(**test_args)
 
                 if "depth_map" not in result or "error" in result:
                     entry = None
@@ -175,13 +176,15 @@ class OrbitalValidationWidget(Widget):
                     else:
                         points_2d_and_status.append((px, py, True))
 
-
                 entry = {
                     "view_idx": view_idx,
                     "points_2d_and_status": points_2d_and_status,
                     "cam_params": cam_params,
+                    "fov": fov_actual,
+                    "resolution": resolution,
                     "ratio": len([p for p in points_2d_and_status if p[2]]) / len(points_2d_and_status),
-                    "image": result["image"]
+                    "image": result["image"],
+                    "depth_map": result["depth_map"].detach()
                 }
 
                 self.results.append(entry)
