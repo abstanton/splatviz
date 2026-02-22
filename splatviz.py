@@ -22,6 +22,7 @@ from widgets import (
     render,
     training,
     pick_3d,
+    orbital_validation,
 )
 
 
@@ -55,6 +56,7 @@ class Splatviz(imgui_window.ImguiWindow):
                 save.CaptureWidget(self),
                 render.RenderWidget(self),
                 pick_3d.Pick3DWidget(self),
+                orbital_validation.OrbitalValidationWidget(self),
                 edit.EditWidget(self),
                 eval.EvalWidget(self),
             ]

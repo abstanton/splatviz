@@ -108,6 +108,7 @@ class Pick3DWidget(Widget):
                         imgui.text(f"  #{start + i + 1}: ({pt[0]:.4f}, {pt[1]:.4f}, {pt[2]:.4f})")
 
         viz.args.return_depth = self.enabled
+        viz.args.picked_points = list(self.points)  # for orbital validation widget
 
         if not self.enabled:
             return
