@@ -24,8 +24,6 @@ from widgets import (
     pick_3d,
     orbital_validation,
 )
-
-
 class Splatviz(imgui_window.ImguiWindow):
     def __init__(self, mode, host, port):
         self.code_font_path = "resources/fonts/jetbrainsmono/JetBrainsMono-Regular.ttf"
@@ -83,15 +81,25 @@ class Splatviz(imgui_window.ImguiWindow):
         self.result = EasyDict()
         self.eval_result = ""
 
+        # Post-render hooks: list of (image, result, args) -> None; each hook may modify image in place.
+        self.post_render_hooks = []
+
         # Initialize window.
         self.set_position(0, 0)
         self._adjust_font_size()
         self.skip_frame()
         self.preprocessed_images = []
 
+    def register_post_render_hook(self, fn):
+        """Register a callback to run after each render, before the image is displayed.
+        Signature: fn(image, result, args) -> None. The image is a mutable copy; modify in place.
+        """
+        self.post_render_hooks.append(fn)
+
     def close(self):
         for widget in self.widgets:
             widget.close()
+        self.post_render_hooks.clear()
         super().close()
 
     def print_error(self, error):
@@ -142,13 +150,18 @@ class Splatviz(imgui_window.ImguiWindow):
             if result is not None:
                 self.result = result
 
-        # Display
+        # Display (run post-render hooks on a copy of the image when any are registered)
         max_w = self.content_width - self.pane_w
         max_h = self.content_height
         pos = np.array([self.pane_w + max_w / 2, max_h / 2])
         if "image" in self.result:
-            if self._tex_img is not self.result.image:
-                self._tex_img = self.result.image
+            display_image = self.result.image
+            if self.post_render_hooks:
+                display_image = display_image.copy()
+                for hook in self.post_render_hooks:
+                    hook(display_image, self.result, self.args)
+            if self._tex_img is not display_image:
+                self._tex_img = display_image
                 if self._tex_obj is None or not self._tex_obj.is_compatible(image=self._tex_img):
                     self._tex_obj = gl_utils.Texture(image=self._tex_img, bilinear=False, mipmap=False)
                 else:

@@ -1,11 +1,51 @@
 import os
 import numpy as np
 import torch
+import cv2
 from imgui_bundle import imgui
 
 from splatviz_utils.gui_utils import imgui_utils
 from splatviz_utils.gui_utils.easy_imgui import label
 from widgets.widget import Widget
+
+
+def world_point_to_pixel(world_pos, cam_params, fov_deg, width, height):
+    """Project world point to 2D pixel coords. Returns (px, py) or None if behind camera or out of bounds."""
+    world_pos = np.asarray(world_pos, dtype=np.float64)
+    if world_pos.ndim == 1:
+        world_pos = world_pos.reshape(1, 3)
+    cam = np.asarray(cam_params, dtype=np.float64)
+    if cam.shape != (4, 4):
+        cam = cam.reshape(4, 4)
+    world_h = np.column_stack([world_pos, np.ones(len(world_pos))])
+    view_pos = (np.linalg.inv(cam) @ world_h.T).T[0, :3]
+    z_v = view_pos[2]
+    if z_v <= 0:
+        return None
+    fov_rad = np.radians(fov_deg)
+    tan_fov = np.tan(fov_rad / 2)
+    ndc_x = view_pos[0] / (z_v * tan_fov)
+    ndc_y = view_pos[1] / (z_v * tan_fov)
+    px = (ndc_x + 1) * width / 2
+    py = (1 - ndc_y) * height / 2
+    if px < 0 or px >= width or py < 0 or py >= height:
+        return None
+    return px, py
+
+
+def draw_picked_points_on_image(image, points, cam_params, fov_deg, radius=8, color=(0, 255, 0), thickness=2):
+    """Draw projected picked points on the image in place. points: list of (x,y,z) or lists."""
+    if not points:
+        return
+    h, w = image.shape[:2]
+    for pt in points:
+        proj = world_point_to_pixel(pt, cam_params, fov_deg, w, h)
+        if proj is None:
+            continue
+        px, py = int(round(proj[0])), int(round(proj[1]))
+        cv2.circle(image, (px, py), radius, color, thickness)
+        # Crosshair for visibility
+        cv2.drawMarker(image, (px, py), color, cv2.MARKER_CROSS, radius * 2, thickness)
 
 
 def unproject_pixel_to_world(px, py, depth, cam_params, fov_deg, resolution):
@@ -32,6 +72,18 @@ class Pick3DWidget(Widget):
         self.enabled = False
         self.points = []  # list of (x, y, z) numpy arrays
         self.save_path = "./picked_points.txt"
+        self.show_points_on_view = True  # draw projected points on the rendered image
+        viz.register_post_render_hook(self._post_render_draw_points)
+
+    def _post_render_draw_points(self, image, result, args):
+        """Post-render hook: draw projected picked points on the image in place."""
+        if not self.show_points_on_view or not self.points:
+            return
+        cam_params = getattr(args, "cam_params", None)
+        fov = getattr(args, "fov", 60)
+        if cam_params is None:
+            return
+        draw_picked_points_on_image(image, self.points, cam_params, fov)
 
     def _image_display_rect(self):
         """Compute the on-screen rect of the rendered image (same as splatviz draw)."""
@@ -91,6 +143,7 @@ class Pick3DWidget(Widget):
         if show:
             _changed, self.enabled = imgui.checkbox("Enable pick (click in image)", self.enabled)
             imgui.same_line()
+            _, self.show_points_on_view = imgui.checkbox("Draw points on view", self.show_points_on_view)
             if imgui_utils.button("Clear points"):
                 self.points.clear()
 
@@ -108,7 +161,7 @@ class Pick3DWidget(Widget):
                         imgui.text(f"  #{start + i + 1}: ({pt[0]:.4f}, {pt[1]:.4f}, {pt[2]:.4f})")
 
         viz.args.return_depth = self.enabled
-        viz.args.picked_points = list(self.points)  # for orbital validation widget
+        viz.args.picked_points = [p.tolist() for p in self.points]  # for orbital validation widget
 
         if not self.enabled:
             return
