@@ -43,6 +43,7 @@ class GaussianRenderer(Renderer):
         img_normalize=False,
         use_splitscreen=False,
         highlight_border=False,
+        return_depth=False,
         save_ply_path=None,
         colormap=None,
         invert=False,
@@ -96,6 +97,12 @@ class GaussianRenderer(Renderer):
             if save_ply_path is not None:
                 self.save_ply(gs, save_ply_path)
 
+            # Store depth and camera for 3D pick (first scene only)
+            if return_depth and scene_index == 0:
+                res.depth_map = render["depth"].cpu()
+                res.depth_cam_params = cam_params.cpu()
+                res.depth_fov = fov
+                res.depth_resolution = resolution
 
         res.mean_xyz = torch.mean(gs.get_xyz, dim=0)
         res.std_xyz = torch.std(gs.get_xyz)

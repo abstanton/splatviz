@@ -21,6 +21,7 @@ from widgets import (
     save,
     render,
     training,
+    pick_3d,
 )
 
 
@@ -53,6 +54,7 @@ class Splatviz(imgui_window.ImguiWindow):
                 performance.PerformanceWidget(self),
                 save.CaptureWidget(self),
                 render.RenderWidget(self),
+                pick_3d.Pick3DWidget(self),
                 edit.EditWidget(self),
                 eval.EvalWidget(self),
             ]
