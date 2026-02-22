@@ -23,6 +23,7 @@ from widgets import (
     training,
     pick_3d,
     orbital_validation,
+    object_segmentation,
 )
 class Splatviz(imgui_window.ImguiWindow):
     def __init__(self, mode, host, port):
@@ -45,6 +46,7 @@ class Splatviz(imgui_window.ImguiWindow):
         self._last_error_print = None
 
         self.widgets = []
+        self.post_render_hooks = []
         update_all_the_time = False
         if mode == "default":
             self.widgets = [
@@ -53,10 +55,11 @@ class Splatviz(imgui_window.ImguiWindow):
                 performance.PerformanceWidget(self),
                 save.CaptureWidget(self),
                 render.RenderWidget(self),
-                pick_3d.Pick3DWidget(self),
-                orbital_validation.OrbitalValidationWidget(self),
                 edit.EditWidget(self),
                 eval.EvalWidget(self),
+                pick_3d.Pick3DWidget(self),
+                orbital_validation.OrbitalValidationWidget(self),
+                object_segmentation.ObjectSegmentationWidget(self),
             ]
             renderer = GaussianRenderer()
         elif mode == "attach":
@@ -78,11 +81,11 @@ class Splatviz(imgui_window.ImguiWindow):
 
         # Widget interface.
         self.args = EasyDict()
+        self.store = EasyDict()
         self.result = EasyDict()
         self.eval_result = ""
 
         # Post-render hooks: list of (image, result, args) -> None; each hook may modify image in place.
-        self.post_render_hooks = []
 
         # Initialize window.
         self.set_position(0, 0)

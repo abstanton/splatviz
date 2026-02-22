@@ -129,3 +129,22 @@ def get_default_extrinsics():
         radius=2.7,
         lookat_position=torch.tensor([0, 0, 0], device="cuda")
     )
+
+def world_point_to_pixel_and_depth(world_pos, cam_params, fov_deg, width, height):
+    """Project world point into camera. Returns (px, py, expected_depth) or None if behind camera."""
+    if len(world_pos.shape) == 1:
+        world_pos = world_pos.unsqueeze(0)
+    world_h = torch.cat(
+        [world_pos, torch.ones(world_pos.shape[0], 1, device=world_pos.device, dtype=world_pos.dtype)], dim=-1
+    )
+    world_view = torch.linalg.inv(cam_params)
+    view_pos = (world_view @ world_h.T).T[:, :3]
+    z_v = view_pos[:, 2]
+    fov_rad = fov_deg / 360 * 2 * np.pi
+    tan_fov = np.tan(fov_rad / 2)
+    ndc_x = view_pos[:, 0] / (z_v * tan_fov)
+    ndc_y = view_pos[:, 1] / (z_v * tan_fov)
+    px = (ndc_x + 1) * width / 2
+    py = (ndc_y + 1) * height / 2
+   
+    return px, py, z_v
